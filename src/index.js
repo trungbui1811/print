@@ -25,19 +25,34 @@ function getSumatraPath() {
 
 function isPrinterConnected(printerName) {
     try {
-        const cmd = `powershell -Command "Get-WmiObject Win32_PnPEntity | Where-Object { $_.Name -like '*${printerName}*' } | ConvertTo-Json"`;
-        const output = execSync(cmd, { encoding: "utf8" });
+        const cmd = `powershell -Command "Get-WmiObject Win32_Printer | Where-Object { $_.Name -eq '${printerName}' } | Select-Object Name, WorkOffline, PrinterStatus | ConvertTo-Json"`;
+        const output = execSync(cmd, { encoding: "utf8" }).trim();
 
-        if (!output.trim()) return false;
+        if (!output) return false;
 
-        const data = JSON.parse(output);
+        const info = JSON.parse(output);
 
-        // Nếu là mảng hoặc 1 object
-        return Array.isArray(data) ? data.length > 0 : true;
+        // Nếu nhiều printer trùng tên → lấy array
+        const p = Array.isArray(info) ? info[0] : info;
+
+        // Trường hợp không tìm thấy
+        if (!p) return false;
+
+        // ❗ WorkOffline = true => máy đang offline
+        if (p.WorkOffline === true) return false;
+
+        // ❗ PrinterStatus = 7 => offline
+        if (p.PrinterStatus === 7) return false;
+
+        // ✔ Nếu qua 2 kiểm tra trên → máy đang ONLINE
+        return true;
+
     } catch (e) {
+        console.error("Error check printer:", e);
         return false;
     }
 }
+
 
 function filterRealPrinters(printers) {
     const virtualNames = [
@@ -109,16 +124,16 @@ app.post("/print", async (req, res) => {
 
         console.log("📌 Printing via:", realDefaultPrinter.name || realDefaultPrinter.deviceId);
 
-        await printer.print(tempPath, {
-            printer: realDefaultPrinter.name,
-            sumatraPdfPath: getSumatraPath(),
-            win32: [
-                "print-dialog=no",
-                "paper=A4",       // 👈 BẮT BUỘC
-                "simplex"         // in 1 mặt
-            ],
-            scale: "fit"
-        });
+        // await printer.print(tempPath, {
+        //     printer: realDefaultPrinter.name,
+        //     sumatraPdfPath: getSumatraPath(),
+        //     win32: [
+        //         "print-dialog=no",
+        //         "paper=A4",       // 👈 BẮT BUỘC
+        //         "simplex"         // in 1 mặt
+        //     ],
+        //     scale: "fit"
+        // });
 
         fs.unlinkSync(tempPath);
         console.log("📌 Printing success:", realDefaultPrinter.name || realDefaultPrinter.deviceId);

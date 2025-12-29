@@ -14,9 +14,6 @@
     "dev": "node src/index.js"
   },
   "pkg": {
-    "options": {
-      "no-windows-console": true
-    },
     "targets": [
       "node18-win-x64"
     ]
