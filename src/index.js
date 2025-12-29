@@ -124,16 +124,14 @@ app.post("/print", async (req, res) => {
 
         console.log("📌 Printing via:", realDefaultPrinter.name || realDefaultPrinter.deviceId);
 
-        // await printer.print(tempPath, {
-        //     printer: realDefaultPrinter.name,
-        //     sumatraPdfPath: getSumatraPath(),
-        //     win32: [
-        //         "print-dialog=no",
-        //         "paper=A4",       // 👈 BẮT BUỘC
-        //         "simplex"         // in 1 mặt
-        //     ],
-        //     scale: "fit"
-        // });
+        await printer.print(tempPath, {
+            printer: realDefaultPrinter.name,
+            sumatraPdfPath: getSumatraPath(),
+            paperSize: "A4",        // Khổ giấy A4
+            side: "simplex",        // In 1 mặt
+            scale: "fit",           // Fit trang
+            printDialog: false,      // Hiện Print dialog
+        });
 
         fs.unlinkSync(tempPath);
         console.log("📌 Printing success:", realDefaultPrinter.name || realDefaultPrinter.deviceId);
