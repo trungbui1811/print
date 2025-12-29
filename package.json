@@ -1,0 +1,24 @@
+{
+  "name": "print-service",
+  "version": "1.0.0",
+  "dependencies": {
+    "cors": "2.8.5",
+    "express": "5.2.1",
+    "pdf-to-printer": "5.6.1"
+  },
+  "bin": "src/index.js",
+  "scripts": {
+    "build-exe": "node build.js",
+    "build-installer": "iscc print-service.iss",
+    "build-all": "npm run build-exe && npm run build-installer",
+    "dev": "node src/index.js"
+  },
+  "pkg": {
+    "options": {
+      "no-windows-console": true
+    },
+    "targets": [
+      "node18-win-x64"
+    ]
+  }
+}
