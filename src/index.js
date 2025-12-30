@@ -76,10 +76,7 @@ function filterRealPrinters(printers) {
     });
 }
 
-async function getRealDefaultPrinter() {
-    const printers = await printer.getPrinters();
-    const realPrinters = filterRealPrinters(printers);
-
+async function getRealDefaultPrinter(realPrinters) {
     // Không có máy in thật
     if (realPrinters.length === 0) return null;
 
@@ -96,52 +93,60 @@ async function getRealDefaultPrinter() {
     return realPrinters[0];
 }
 
+app.get("/status", async (req, res) => {
+    try {
+        const printers = await printer.getPrinters();
+        const realPrinters = filterRealPrinters(printers);
+        const realDefaultPrinter = await getRealDefaultPrinter(realPrinters);
+
+        if (!realDefaultPrinter) {
+            return res.status(500).json({ error: "Cannot find real printer in this device, please connect or check your printer's driver" });
+        }
+
+        res.json({
+            installed: true,
+            printers: realPrinters,
+            defaultPrinter: realDefaultPrinter
+        });
+    } catch (err) {
+        res.status(500).json({ installed: false, err: err.message });
+    }
+});
+
 app.post("/print", async (req, res) => {
     try {
-        const { data, fileType, mimetype } = req.body;
+        const { data, fileType, mimetype, options } = req.body;
 
         const buffer = Buffer.from(data, "base64");
 
-        let ext;
-
-        if (fileType === "pdf") ext = "pdf";
-        else if (fileType === "image") ext = mimetype.split("/")[1];
-        else if (fileType === "text") ext = "txt";
-        else {
-            return res.status(400).json({ error: "File not support" });
-        }
+        let ext = fileType === "pdf"
+            ? "pdf"
+            : fileType === "image"
+                ? mimetype.split("/")[1]
+                : "txt";
 
         const tempPath = path.join(os.tmpdir(), `temp_${Date.now()}.${ext}`);
         fs.writeFileSync(tempPath, fileType === "text" ? data : buffer);
 
-        // 🖨 Auto pick real printer
-        const realDefaultPrinter = await getRealDefaultPrinter();
-
-        if (!realDefaultPrinter) {
-            fs.unlinkSync(tempPath);
-            return res.status(500).json({ error: "Cannot find real printer in this device" });
-        }
-
-        console.log("📌 Printing via:", realDefaultPrinter.name || realDefaultPrinter.deviceId);
-
         await printer.print(tempPath, {
-            printer: realDefaultPrinter.name,
+            printer: options.printer,
             sumatraPdfPath: getSumatraPath(),
-            paperSize: "A4",        // Khổ giấy A4
-            side: "simplex",        // In 1 mặt
-            scale: "fit",           // Fit trang
-            printDialog: false,      // Hiện Print dialog
+            paperSize: options.paperSize,
+            side: options.side,
+            copies: options.copies,
+            scale: "fit",
+            monochrome: options.monochrome ?? false
         });
 
         fs.unlinkSync(tempPath);
-        console.log("📌 Printing success:", realDefaultPrinter.name || realDefaultPrinter.deviceId);
 
-        res.json({ success: true, printer: realDefaultPrinter });
+        res.json({ success: true });
 
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
+
 
 app.listen(14001, () => console.log("🚀 Print Service is running"));
